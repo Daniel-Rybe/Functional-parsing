@@ -12,6 +12,7 @@ module Parsing
 
 import           Control.Applicative
 import           Control.Monad                  ( join )
+import           Control.Monad.Trans.Class      ( MonadTrans(lift) )
 import           Data.Char                      ( isAlpha
                                                 , isAlphaNum
                                                 , isDigit
@@ -76,6 +77,9 @@ instance Monad m => Monad (ParserT m) where
             mlmlb  = map (\(a, out) -> parseT (f a) out) <$> mlaout
         in  joinMLML mlmlb
 
+instance MonadTrans ParserT where
+    lift ma = P $ \str -> (\a -> [(a, str)]) <$> ma
+
 -- Making choices
 
 instance Monad m => Alternative (ParserT m) where
@@ -131,10 +135,17 @@ ident = do
     xs <- many alphanum
     return (x : xs)
 
+digit1to9 :: Monad m => ParserT m Char
+digit1to9 = sat (`elem` "123456789")
+
 nat :: Monad m => ParserT m Int
-nat = do
-    xs <- some digit
-    return (read xs)
+nat =
+    do
+            first <- digit1to9
+            rest  <- many digit
+            return $ read $ first : rest
+        <|> 0
+        <$  char '0'
 
 int :: Monad m => ParserT m Int
 int =
